@@ -9,7 +9,7 @@ class MealPlanner {
         println("Input the meal's name:")
         val name = scanner.nextLine()
         println("Input the ingredients:")
-        val ingredients = scanner.nextLine().split(", ")
+        val ingredients = scanner.nextLine().split("\\s*,\\s*".toRegex())
         val meal = Meal(category, name, ingredients)
         meals.add(meal)
         println("\n$meal\nThe meal has been added!")
