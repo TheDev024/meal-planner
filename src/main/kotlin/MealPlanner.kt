@@ -1,7 +1,4 @@
 import entity.Meal
-import java.util.Scanner
-
-val scanner = Scanner(System.`in`)
 
 class MealPlanner {
     private val meals: MutableList<Meal> = mutableListOf()
