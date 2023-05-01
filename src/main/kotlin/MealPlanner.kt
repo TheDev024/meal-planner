@@ -66,19 +66,27 @@ class MealPlanner {
     }
 
     private fun show() {
+        val input = getInput(
+            "Which category do you want to print (breakfast, lunch, dinner)?",
+            listOf("breakfast", "lunch", "dinner"),
+            errorMessage = "Wrong meal category! Choose from: breakfast, lunch, dinner."
+        )
+
+        val category = Categories.valueOf(input.uppercase())
+
         val dataSet = manager.select(
             SelectQuery(
                 "meal",
                 columns = listOf(
                     "meal.id",
                     "meal.name as 'meal'",
-                    "meal.category as category",
                     "ingredient.name as 'ingredient'"
                 ),
                 join = listOf(
                     "meal_ingredients ON meal.id = meal_ingredients.meal_id",
                     "ingredient ON ingredient.id = meal_ingredients.ingredient_id"
-                )
+                ),
+                where = "category = ${category.ordinal}"
             )
         )
         val rows = mutableListOf<MealRow>()
@@ -87,26 +95,23 @@ class MealPlanner {
                 MealRow(
                     dataSet.getInt("id"),
                     dataSet.getString("meal"),
-                    dataSet.getInt("category"),
                     dataSet.getString("ingredient")
                 )
             )
         }
 
-        if (rows.isEmpty()) println("No meals saved. Add a meal first.")
+        if (rows.isEmpty()) println("No meals saved found.")
         else {
             val groupedRows = rows.groupBy { it.id }
             val meals = groupedRows.map { it.value }.map {
                 val name = it.first().name
-                val category =
-                    Categories.values().find { category -> category.ordinal == it.first().category }!!.name.lowercase()
                 Meal(
                     name,
-                    category,
+                    category.name.lowercase(),
                     it.map { row -> row.ingredient }
                 )
             }
-            println(meals.joinToString("\n\n", "\n", "\n"))
+            println(meals.joinToString("\n\n", "Category: ${input.lowercase()}\n\n", "\n"))
         }
     }
 

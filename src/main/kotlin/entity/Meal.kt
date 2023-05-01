@@ -5,8 +5,6 @@ data class Meal(
     val category: String,
     val ingredients: List<String>
 ) {
-    override fun toString(): String =
-        "Category: $category\n" +
-                "Name: $meal\n" +
-                "Ingredients: ${ingredients.joinToString("\n", "\n")}"
+    override fun toString(): String = "Name: $meal\n" +
+            "Ingredients: ${ingredients.joinToString("\n", "\n")}"
 }
