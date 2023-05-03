@@ -98,13 +98,11 @@ class MealPlanner {
     }
 
     private fun add() {
-        val category = getInput(
-            "Which meal do you want to add (breakfast, lunch, dinner)?",
-            listOf("breakfast", "lunch", "dinner"),
-            errorMessage = "Wrong meal category! Choose from: breakfast, lunch, dinner."
-        )
-
-        val categoryId = Category.valueOf(category.uppercase()).ordinal + 1
+        val categoryId = getInput(
+            "Choose category(1-3):\n1. Breakfast\n2. Lunch\n3. Dinner",
+            "[1-3]".toRegex(),
+            errorMessage = "Wrong meal category! Make a choice in (1-3)!"
+        ).toInt()
 
         val meal = getInput(
             "Input the meal's name:", "^[a-zA-Z\\s]+\$".toRegex(), true, "Wrong format. Use letters only!"
