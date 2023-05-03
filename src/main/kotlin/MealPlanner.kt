@@ -77,7 +77,7 @@ class MealPlanner {
 
             when (getInput(
                 "What would you like to do (add, show, plan, exit)?",
-                listOf("add", "show", "exit"),
+                listOf("add", "show", "exit", "plan"),
                 errorMessage = ""
             )) {
                 "add" -> add()
@@ -161,7 +161,7 @@ class MealPlanner {
             errorMessage = "Wrong meal category! Make a choice in (1-3)!"
         ).toInt()
 
-        val category = Category.values().find { it.ordinal + 1 == categoryId }
+        val category = Category.values().find { it.ordinal + 1 == categoryId }!!
 
         val dataSet = manager.select(
             SelectQuery(
@@ -194,12 +194,77 @@ class MealPlanner {
             val groupedRows = rows.groupBy { it.meal }
             groupedRows.forEach { (meal, ingredients) ->
                 println("\nName: $meal")
-                println(ingredients.joinToString("\n") { it.ingredient })
+                println(ingredients.joinToString("\n") { it.ingredient.toCapitalCase() })
             }
         }
     }
 
     private fun plan() {
-        TODO("Not yet implemented")
+        val weekdays = Weekday.values()
+        val categories = Category.values()
+        manager.delete("plan")
+
+        weekdays.forEach { weekday ->
+            val weekdayId = weekday.ordinal + 1
+            println(weekday.name.lowercase().toCapitalCase())
+            categories.forEach { category ->
+                val categoryId = category.ordinal + 1
+                val dataSet = manager.select(
+                    SelectQuery(
+                        "meal",
+                        listOf("id", "meal"),
+                        where = "category_id = $categoryId",
+                    )
+                )
+                val meals = mutableListOf<Pair<Int, String>>()
+                while (dataSet.next()) meals.add(Pair(dataSet.getInt("id"), dataSet.getString("meal")))
+                println(meals.joinToString("\n") { meal -> "${meal.first}. ${meal.second}" })
+                val mealId = getInput(
+                    "Choose $category for $weekday from the list above",
+                    meals.map { it.first.toString() },
+                    errorMessage = "Please choose from the list above..."
+                ).toInt()
+                manager.insert(
+                    InsertQuery(
+                        "plan",
+                        listOf(
+                            listOf(weekdayId, mealId)
+                        ),
+                        listOf("weekday_id", "meal_id")
+                    )
+                )
+            }
+        }
+
+        println("The weekly plan is ready.")
+        val dataSet = manager.select(
+            SelectQuery(
+                "plan",
+                listOf("weekday.weekday", "category.category", "meal.meal"),
+                join = listOf(
+                    "weekday on weekday.id = plan.weekday_id",
+                    "meal on meal.id = plan.meal_id",
+                    "category on category.id = meal.category_id"
+                )
+            )
+        )
+
+        val rows = mutableListOf<Triple<String, String, String>>()
+        while (dataSet.next()) rows.add(
+            Triple(
+                dataSet.getString("weekday"),
+                dataSet.getString("category"),
+                dataSet.getString("meal")
+            )
+        )
+
+        val days = rows.groupBy({ row -> row.first }) { row ->
+            Pair(row.second, row.third)
+        }
+
+        days.forEach { (day, meal) ->
+            println(day.toCapitalCase())
+            println(meal.joinToString("\n") { "${it.first.toCapitalCase()}: ${it.second}" })
+        }
     }
 }
