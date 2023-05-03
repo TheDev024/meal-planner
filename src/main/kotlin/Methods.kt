@@ -29,3 +29,5 @@ fun getInput(
         getInput(prompt, validInputs, caseSensitive, errorMessage)
     }
 }
+
+fun String.toCapitalCase(): String = this.replaceFirstChar { it.uppercase() }

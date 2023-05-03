@@ -20,6 +20,8 @@ class DataBaseManager(private val dataBaseFile: String) {
 
     fun select(query: SelectQuery): ResultSet = statement.executeQuery(query.toString())
 
+    fun delete(table: String): Int = statement.executeUpdate("DROP TABLE $table")
+
     fun close() {
         try {
             statement.close()
