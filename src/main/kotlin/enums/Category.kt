@@ -1,3 +1,5 @@
 package enums
 
-enum class Category { BREAKFAST, LUNCH, DINNER }
+enum class Category {
+    BREAKFAST, LUNCH, DINNER;
+}

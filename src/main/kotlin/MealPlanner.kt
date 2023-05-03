@@ -155,52 +155,47 @@ class MealPlanner {
     }
 
     private fun show() {
-        val input = getInput(
-            "Which category do you want to print (breakfast, lunch, dinner)?",
-            listOf("breakfast", "lunch", "dinner"),
-            errorMessage = "Wrong meal category! Choose from: breakfast, lunch, dinner."
-        )
+        val categoryId = getInput(
+            "Which category do you want to print(1-3)?:\n1. Breakfast\n2. Lunch\n3. Dinner",
+            "[1-3]".toRegex(),
+            errorMessage = "Wrong meal category! Make a choice in (1-3)!"
+        ).toInt()
 
-        val category = Category.valueOf(input.uppercase())
+        val category = Category.values().find { it.ordinal + 1 == categoryId }
 
         val dataSet = manager.select(
             SelectQuery(
                 "meal",
                 columns = listOf(
-                    "meal.id",
-                    "meal.name as 'meal'",
-                    "ingredient.name as 'ingredient'"
+                    "meal.meal",
+                    "ingredient.ingredient"
                 ),
                 join = listOf(
-                    "meal_ingredients ON meal.id = meal_ingredients.meal_id",
-                    "ingredient ON ingredient.id = meal_ingredients.ingredient_id"
+                    "category ON meal.category_id = category.id",
+                    "ingredients ON ingredients.meal_id = meal.id",
+                    "ingredient ON ingredient.id = ingredients.ingredient_id"
                 ),
-                where = "category = ${category.ordinal}"
+                where = "category_id = $categoryId"
             )
         )
+
         val rows = mutableListOf<MealRow>()
         while (dataSet.next()) {
             rows.add(
                 MealRow(
-                    dataSet.getInt("id"),
                     dataSet.getString("meal"),
                     dataSet.getString("ingredient")
                 )
             )
         }
 
-        if (rows.isEmpty()) println("No meals saved found.")
-        else {
-            val groupedRows = rows.groupBy { it.id }
-            val meals = groupedRows.map { it.value }.map {
-                val name = it.first().name
-                Meal(
-                    name,
-                    category.name.lowercase(),
-                    it.map { row -> row.ingredient }
-                )
+        if (rows.isEmpty()) println("No saved meals found.") else {
+            println("Category: $category")
+            val groupedRows = rows.groupBy { it.meal }
+            groupedRows.forEach { (meal, ingredients) ->
+                println("\nName: $meal")
+                println(ingredients.joinToString("\n") { it.ingredient })
             }
-            println(meals.joinToString("\n\n", "Category: ${input.lowercase()}\n\n", "\n"))
         }
     }
 
