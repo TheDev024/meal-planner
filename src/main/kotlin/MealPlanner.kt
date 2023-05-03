@@ -1,8 +1,7 @@
-import entity.Meal
-import entity.MealRow
-import query.InsertQuery
-import query.SelectQuery
-import query.TableQuery
+import entity.*
+import enums.*
+import org.sqlite.SQLiteException
+import query.*
 
 class MealPlanner {
     private val manager = DataBaseManager("meals.db")
@@ -15,26 +14,57 @@ class MealPlanner {
                 "meal",
                 listOf(
                     "id INTEGER PRIMARY KEY AUTOINCREMENT",
-                    "name TEXT",
-                    "category INGREDIENT"
+                    "meal VARCHAR(50) NOT NULL",
+                    "category_id INTEGER",
+                    "UNIQUE (meal, category_id)",
+                    "CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES category(id) ON DELETE CASCADE ON UPDATE CASCADE"
                 )
             ),
+            TableQuery("category", listOf("id INTEGER PRIMARY KEY", "category VARCHAR(15) NOT NULL UNIQUE")),
             TableQuery(
                 "ingredient",
-                listOf(
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT",
-                    "name TEXT"
-                )
+                listOf("id INTEGER PRIMARY KEY AUTOINCREMENT", "ingredient VARCHAR(50) NOT NULL UNIQUE")
             ),
             TableQuery(
-                "meal_ingredients",
+                "ingredients",
                 listOf(
                     "id INTEGER PRIMARY KEY AUTOINCREMENT",
                     "meal_id INTEGER",
-                    "ingredient_id INTEGER"
+                    "ingredient_id INTEGER",
+                    "CONSTRAINT fk_meal FOREIGN KEY (meal_id) REFERENCES meals(id) ON DELETE CASCADE ON UPDATE CASCADE",
+                    "CONSTRAINT fk_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE ON UPDATE CASCADE"
+                )
+            ),
+            TableQuery("weekday", listOf("id INTEGER PRIMARY KEY", "weekday VARCHAR(10) NOT NULL UNIQUE")),
+            TableQuery(
+                "plan",
+                listOf(
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT",
+                    "weekday_id INTEGER",
+                    "meal_id INTEGER",
+                    "CONSTRAINT fk_weekday FOREIGN KEY (weekday_id) REFERENCES ingredients(id) ON DELETE CASCADE ON UPDATE CASCADE",
+                    "CONSTRAINT fk_meal FOREIGN KEY (meal_id) REFERENCES meals(id) ON DELETE CASCADE ON UPDATE CASCADE"
                 )
             )
         )
+
+        Category.values().forEach { category ->
+            try {
+                manager.insert(InsertQuery("category", listOf(listOf(category.ordinal + 1, category.name.lowercase()))))
+            } catch (_: SQLiteException) {
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        Weekday.values().forEach { weekday ->
+            try {
+                manager.insert(InsertQuery("weekday", listOf(listOf(weekday.ordinal + 1, weekday.name.lowercase()))))
+            } catch (_: SQLiteException) {
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
 
         tables.forEach { manager.createTable(it) }
 
@@ -46,13 +76,15 @@ class MealPlanner {
             manager.open()
 
             when (getInput(
-                "What would you like to do (add, show, exit)?",
+                "What would you like to do (add, show, plan, exit)?",
                 listOf("add", "show", "exit"),
                 errorMessage = ""
             )) {
                 "add" -> add()
 
                 "show" -> show()
+
+                "plan" -> plan()
 
                 "exit" -> {
                     manager.close()
@@ -65,6 +97,65 @@ class MealPlanner {
         }
     }
 
+    private fun add() {
+        val category = getInput(
+            "Which meal do you want to add (breakfast, lunch, dinner)?",
+            listOf("breakfast", "lunch", "dinner"),
+            errorMessage = "Wrong meal category! Choose from: breakfast, lunch, dinner."
+        )
+
+        val categoryId = Category.valueOf(category.uppercase()).ordinal + 1
+
+        val meal = getInput(
+            "Input the meal's name:", "^[a-zA-Z\\s]+\$".toRegex(), true, "Wrong format. Use letters only!"
+        )
+
+        try {
+            manager.insert(
+                InsertQuery("meal", listOf(listOf(meal, categoryId)), listOf("meal", "category_id"))
+            )
+        } catch (e: SQLiteException) {
+            println("The meal has already been added!")
+            return
+        }
+
+        val ingredients = getInput(
+            "Input the ingredients:",
+            "(\\s*$WORD_REGEX\\s*)+(,(\\s*$WORD_REGEX\\s*)+)*".toRegex(),
+            caseSensitive = true,
+            errorMessage = "Wrong format. Use letters only!"
+        ).split("\\s*,\\s*".toRegex())
+
+        var dataSet = manager.select(
+            SelectQuery("meal", listOf("id"), where = "meal = '$meal' AND category_id = $categoryId")
+        )
+        dataSet.next()
+        val mealId = dataSet.getInt("id")
+
+        ingredients.forEach { ingredient ->
+            try {
+                manager.insert(InsertQuery("ingredient", listOf(listOf(ingredient)), listOf("ingredient")))
+            } catch (_: Exception) {
+            }
+
+            dataSet = manager.select(SelectQuery("ingredient", listOf("id"), where = "ingredient = '$ingredient'"))
+            dataSet.next()
+
+            val ingredientId = dataSet.getInt("id")
+
+            manager.insert(
+                InsertQuery(
+                    "ingredients",
+                    listOf(
+                        listOf(mealId, ingredientId)
+                    ), listOf("meal_id", "ingredient_id")
+                )
+            )
+        }
+
+        println("The meal has been added!")
+    }
+
     private fun show() {
         val input = getInput(
             "Which category do you want to print (breakfast, lunch, dinner)?",
@@ -72,7 +163,7 @@ class MealPlanner {
             errorMessage = "Wrong meal category! Choose from: breakfast, lunch, dinner."
         )
 
-        val category = Categories.valueOf(input.uppercase())
+        val category = Category.valueOf(input.uppercase())
 
         val dataSet = manager.select(
             SelectQuery(
@@ -115,85 +206,7 @@ class MealPlanner {
         }
     }
 
-    private fun add() {
-        val categoryText = getInput(
-            "Which meal do you want to add (breakfast, lunch, dinner)?",
-            listOf("breakfast", "lunch", "dinner"),
-            errorMessage = "Wrong meal category! Choose from: breakfast, lunch, dinner."
-        )
-
-        val category = when (categoryText) {
-            "breakfast" -> Categories.BREAKFAST.ordinal
-
-            "lunch" -> Categories.LUNCH.ordinal
-
-            else -> Categories.DINNER.ordinal
-        }
-
-        val name = getInput(
-            "Input the meal's name:",
-            "^[a-zA-Z\\s]+\$".toRegex(),
-            true,
-            "Wrong format. Use letters only!"
-        )
-        val ingredients = getInput(
-            "Input the ingredients:",
-            "(\\s*$WORD_REGEX\\s*)+(,(\\s*$WORD_REGEX\\s*)+)*".toRegex(),
-            caseSensitive = true,
-            errorMessage = "Wrong format. Use letters only!"
-        ).split("\\s*,\\s*".toRegex())
-
-        manager.insert(
-            InsertQuery(
-                "meal",
-                listOf(listOf(name, category)),
-                listOf("name", "category")
-            )
-        )
-
-        var dataSet = manager.select(
-            SelectQuery(
-                "meal",
-                listOf("id"),
-                where = "name = '$name'"
-            )
-        )
-        dataSet.next()
-        val mealId = dataSet.getInt("id")
-
-        ingredients.forEach {
-            manager.insert(
-                InsertQuery(
-                    "ingredient",
-                    listOf(
-                        listOf(it)
-                    ),
-                    listOf("name")
-                )
-            )
-
-            dataSet = manager.select(
-                SelectQuery(
-                    "ingredient",
-                    listOf("id"),
-                    where = "name = '$it'"
-                )
-            )
-
-            dataSet.next()
-
-            val ingredientId = dataSet.getInt("id")
-
-            manager.insert(
-                InsertQuery(
-                    "meal_ingredients",
-                    listOf(
-                        listOf(mealId, ingredientId)
-                    ), listOf("meal_id", "ingredient_id")
-                )
-            )
-        }
-
-        println("The meal has been added!")
+    private fun plan() {
+        TODO("Not yet implemented")
     }
 }
