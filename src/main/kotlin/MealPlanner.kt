@@ -76,17 +76,17 @@ class MealPlanner {
             manager.open()
 
             when (getInput(
-                "What would you like to do (add, show, plan, exit)?",
-                listOf("add", "show", "exit", "plan"),
-                errorMessage = ""
+                "What would you like to do?\n0. exit\n1. add\n2. show\n3. plan",
+                "[0-3]".toRegex(),
+                errorMessage = "Make valid choice (0-3)!"
             )) {
-                "add" -> add()
+                "1" -> add()
 
-                "show" -> show()
+                "2" -> show()
 
-                "plan" -> plan()
+                "3" -> plan()
 
-                "exit" -> {
+                "0" -> {
                     manager.close()
                     println("Bye!")
                     break
