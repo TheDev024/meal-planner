@@ -2,6 +2,7 @@ import entity.*
 import enums.*
 import org.sqlite.SQLiteException
 import query.*
+import java.io.File
 
 class MealPlanner {
     private val manager = DataBaseManager("meals.db")
@@ -76,8 +77,8 @@ class MealPlanner {
             manager.open()
 
             when (getInput(
-                "What would you like to do?\n0. exit\n1. add\n2. show\n3. plan",
-                "[0-3]".toRegex(),
+                "What would you like to do?\n0. exit\n1. add\n2. show\n3. plan\n4. save",
+                "[0-4]".toRegex(),
                 errorMessage = "Make valid choice (0-3)!"
             )) {
                 "1" -> add()
@@ -85,6 +86,8 @@ class MealPlanner {
                 "2" -> show()
 
                 "3" -> plan()
+
+                "4" -> save()
 
                 "0" -> {
                     manager.close()
@@ -265,6 +268,29 @@ class MealPlanner {
         days.forEach { (day, meal) ->
             println(day.toCapitalCase())
             println(meal.joinToString("\n") { "${it.first.toCapitalCase()}: ${it.second}" })
+        }
+    }
+
+    private fun save() {
+        val dataSet = manager.select(
+            SelectQuery(
+                "plan",
+                listOf("ingredient.ingredient"),
+                join = listOf(
+                    "ingredients ON ingredients.meal_id = plan.meal_id",
+                    "ingredient ON ingredients.ingredient_id = ingredient.id"
+                )
+            )
+        )
+        val ingredients = mutableListOf<String>()
+        while (dataSet.next()) ingredients.add(dataSet.getString("ingredient"))
+        if (ingredients.isEmpty()) println("Please make a plan first!") else {
+            val filePath = getInput("Enter a filename:")
+            val file = File(filePath)
+            val shoppingList = ingredients.groupingBy { it }.eachCount()
+            file.writeText(shoppingList.map { "${it.key}${if (it.value > 1) " x${it.value}" else ""}" }
+                .joinToString("\n"))
+            println("Saved!")
         }
     }
 }
